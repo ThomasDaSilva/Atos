@@ -1,18 +1,26 @@
 <?php
-/*************************************************************************************/
-/*      This file is part of the Thelia package.                                     */
-/*                                                                                   */
+
+/*
+ * This file is part of the Thelia package.
+ * http://www.thelia.net
+ *
+ * (c) OpenStudio <info@thelia.net>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 /*      Copyright (c) OpenStudio                                                     */
 /*      email : dev@thelia.net                                                       */
 /*      web : http://www.thelia.net                                                  */
-/*                                                                                   */
+
 /*      For the full copyright and license information, please view the LICENSE.txt  */
 /*      file that was distributed with this source code.                             */
-/*************************************************************************************/
 
 namespace Atos\Controller;
 
 use Atos\Atos;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Thelia\Core\Event\Order\OrderEvent;
 use Thelia\Core\Event\TheliaEvents;
@@ -23,31 +31,30 @@ use Thelia\Model\OrderStatusQuery;
 use Thelia\Module\BasePaymentModuleController;
 
 /**
- * Class PaymentController
- * @package Atos\Controller
+ * Class PaymentController.
+ *
  * @author manuel raynaud <mraynaud@openstudio.fr>, Franck Allimant <franck@cqfdev.fr>
  */
 class PaymentController extends BasePaymentModuleController
 {
-
     public function processAtosRequest()
     {
         $this->getLog()->addInfo(
-            $this->getTranslator()->trans(
-                "Atos-SIPS platform request received.",
+            $this->translator->trans(
+                'Atos-SIPS platform request received.',
                 [],
                 Atos::MODULE_DOMAIN
             )
         );
 
-        $binResponse = Atos::getBinDirectory() . 'response';
+        $binResponse = Atos::getBinDirectory().'response';
 
-        if (! empty($_POST['DATA'])) {
+        if (!empty($_POST['DATA'])) {
             $data = escapeshellcmd($_POST['DATA']);
 
             $pathfile = Atos::getPathfilePath();
 
-            $resultRaw = exec(sprintf("%s message=%s pathfile=%s", $binResponse, $data, $pathfile));
+            $resultRaw = exec(sprintf('%s message=%s pathfile=%s', $binResponse, $data, $pathfile));
 
             if (!empty($resultRaw)) {
                 $result = explode('!', $resultRaw);
@@ -55,7 +62,7 @@ class PaymentController extends BasePaymentModuleController
                 $result = $this->parseResult($result);
 
                 $this->getLog()->addInfo(
-                    $this->getTranslator()->trans(
+                    $this->translator->trans(
                         'Response parameters : %resp',
                         ['%resp' => print_r($result, true)],
                         Atos::MODULE_DOMAIN
@@ -64,17 +71,17 @@ class PaymentController extends BasePaymentModuleController
 
                 if ($result['code'] == '' && $result['error'] == '') {
                     $this->getLog()->addError(
-                        $this->getTranslator()->trans(
+                        $this->translator->trans(
                             'Response request not found in %response',
                             ['%response' => $binResponse],
                             Atos::MODULE_DOMAIN
                         )
                     );
-                } elseif (intval($result['code']) != 0) {
+                } elseif ((int) ($result['code']) != 0) {
                     $this->getLog()->addError(
-                        $this->getTranslator()->trans(
+                        $this->translator->trans(
                             'Error %code while processing response, with message %message',
-                            ['%code' => intval($result['code']), '%message' => $result['error']],
+                            ['%code' => (int) ($result['code']), '%message' => $result['error']],
                             Atos::MODULE_DOMAIN
                         )
                     );
@@ -90,15 +97,15 @@ class PaymentController extends BasePaymentModuleController
                         $this->confirmPayment($order->getId());
 
                         $this->getLog()->addInfo(
-                            $this->getTranslator()->trans(
-                                "Order ID %id is confirmed.",
+                            $this->translator->trans(
+                                'Order ID %id is confirmed.',
                                 ['%id' => $order->getId()],
                                 Atos::MODULE_DOMAIN
                             )
                         );
                     } else {
                         $this->getLog()->addError(
-                            $this->getTranslator()->trans(
+                            $this->translator->trans(
                                 'Cannot find an order for transaction ID "%trans"',
                                 ['%trans' => $result['transaction_id']],
                                 Atos::MODULE_DOMAIN
@@ -107,7 +114,7 @@ class PaymentController extends BasePaymentModuleController
                     }
                 } else {
                     $this->getLog()->addError(
-                        $this->getTranslator()->trans(
+                        $this->translator->trans(
                             'Cannot validate order. Response code is %resp',
                             ['%resp' => $result['response_code']],
                             Atos::MODULE_DOMAIN
@@ -116,7 +123,7 @@ class PaymentController extends BasePaymentModuleController
                 }
             } else {
                 $this->getLog()->addError(
-                    $this->getTranslator()->trans(
+                    $this->translator->trans(
                         'Got empty response from executable %binary, check path and permissions',
                         ['%binary' => $binResponse],
                         Atos::MODULE_DOMAIN
@@ -125,7 +132,7 @@ class PaymentController extends BasePaymentModuleController
             }
         } else {
             $this->getLog()->addError(
-                $this->getTranslator()->trans(
+                $this->translator->trans(
                     'Request does not contains any data',
                     [],
                     Atos::MODULE_DOMAIN
@@ -134,8 +141,8 @@ class PaymentController extends BasePaymentModuleController
         }
 
         $this->getLog()->info(
-            $this->getTranslator()->trans(
-                "Atos platform request processing terminated.",
+            $this->translator->trans(
+                'Atos platform request processing terminated.',
                 [],
                 Atos::MODULE_DOMAIN
             )
@@ -148,10 +155,10 @@ class PaymentController extends BasePaymentModuleController
      * @param $orderId int the order ID
      * @return \Thelia\Core\HttpFoundation\Response
      */
-    public function processUserCancel($orderId)
+    public function processUserCancel($orderId, EventDispatcherInterface $dispatcher): void
     {
         $this->getLog()->addInfo(
-            $this->getTranslator()->trans(
+            $this->translator->trans(
                 'User canceled payment of order %id',
                 ['%id' => $orderId],
                 Atos::MODULE_DOMAIN
@@ -166,7 +173,7 @@ class PaymentController extends BasePaymentModuleController
                 if ($orderCustomerId != $currentCustomerId) {
                     throw new TheliaProcessException(
                         sprintf(
-                            "User ID %d is trying to cancel order ID %d ordered by user ID %d",
+                            'User ID %d is trying to cancel order ID %d ordered by user ID %d',
                             $currentCustomerId,
                             $orderId,
                             $orderCustomerId
@@ -176,10 +183,10 @@ class PaymentController extends BasePaymentModuleController
 
                 $event = new OrderEvent($order);
                 $event->setStatus(OrderStatusQuery::getCancelledStatus()->getId());
-                $this->dispatch(TheliaEvents::ORDER_UPDATE_STATUS, $event);
+                $dispatcher->dispatch($event, TheliaEvents::ORDER_UPDATE_STATUS);
             }
         } catch (\Exception $ex) {
-            $this->getLog()->addError("Error occurred while canceling order ID $orderId: " . $ex->getMessage());
+            $this->getLog()->addError("Error occurred while canceling order ID $orderId: ".$ex->getMessage());
         }
 
         $this->redirectToFailurePage(
@@ -222,23 +229,24 @@ class PaymentController extends BasePaymentModuleController
             'customer_ip_address' => $result[29],
             'capture_day' => $result[30],
             'capture_mode' => $result[31],
-            'data' => $result[32]
+            'data' => $result[32],
         ];
     }
 
     public function displayLogo($image)
     {
-        if (file_exists(__DIR__ . DS . '..' . DS . 'logo' . DS . $image)) {
-            $sourceImage = file_get_contents(__DIR__ . DS . '..' . DS . 'logo' . DS . $image);
+        if (file_exists(__DIR__.DS.'..'.DS.'logo'.DS.$image)) {
+            $sourceImage = file_get_contents(__DIR__.DS.'..'.DS.'logo'.DS.$image);
 
             return Response::create($sourceImage, 200, [
                 'Content-Type' => 'image/gif',
-                'Content-Length' => strlen($sourceImage)
+                'Content-Length' => \strlen($sourceImage),
             ]);
         } else {
             throw new NotFoundHttpException();
         }
     }
+
     /**
      * Return a module identifier used to calculate the name of the log file,
      * and in the log messages.

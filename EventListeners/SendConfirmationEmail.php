@@ -1,18 +1,26 @@
 <?php
-/*************************************************************************************/
-/*      This file is part of the Thelia package.                                     */
-/*                                                                                   */
+
+/*
+ * This file is part of the Thelia package.
+ * http://www.thelia.net
+ *
+ * (c) OpenStudio <info@thelia.net>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 /*      Copyright (c) OpenStudio                                                     */
 /*      email : dev@thelia.net                                                       */
 /*      web : http://www.thelia.net                                                  */
-/*                                                                                   */
+
 /*      For the full copyright and license information, please view the LICENSE.txt  */
 /*      file that was distributed with this source code.                             */
-/*************************************************************************************/
 
 namespace Atos\EventListeners;
 
 use Atos\Atos;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Thelia\Core\Event\Order\OrderEvent;
 use Thelia\Core\Event\TheliaEvents;
@@ -20,8 +28,8 @@ use Thelia\Log\Tlog;
 use Thelia\Mailer\MailerFactory;
 
 /**
- * Class SendEmailConfirmation
- * @package Atos\EventListeners
+ * Class SendEmailConfirmation.
+ *
  * @author manuel raynaud <mraynaud@openstudio.fr>
  * @author franck allimant <franck@cqfdev.fr>
  */
@@ -38,17 +46,15 @@ class SendConfirmationEmail implements EventSubscriberInterface
     }
 
     /**
-     * @param OrderEvent $event
-     *
-     * @throws \Exception if the message cannot be loaded.
+     * @throws \Exception if the message cannot be loaded
      */
-    public function sendConfirmationEmail(OrderEvent $event)
+    public function sendConfirmationEmail(OrderEvent $event): void
     {
         if (Atos::getConfigValue('send_confirmation_message_only_if_paid')) {
             // We send the order confirmation email only if the order is paid
             $order = $event->getOrder();
 
-            if (! $order->isPaid() && $order->getPaymentModuleId() == Atos::getModuleId()) {
+            if (!$order->isPaid() && $order->getPaymentModuleId() == Atos::getModuleId()) {
                 $event->stopPropagation();
             }
         }
@@ -59,7 +65,7 @@ class SendConfirmationEmail implements EventSubscriberInterface
      * Checks if order payment module is paypal and if order new status is paid, send an email to the customer.
      */
 
-    public function updateStatus(OrderEvent $event)
+    public function updateStatus(OrderEvent $event, EventDispatcher $dispatcher): void
     {
         $order = $event->getOrder();
 
@@ -69,26 +75,26 @@ class SendConfirmationEmail implements EventSubscriberInterface
                     Atos::CONFIRMATION_MESSAGE_NAME,
                     $order->getCustomer(),
                     [
-                        'order_id'  => $order->getId(),
-                        'order_ref' => $order->getRef()
+                        'order_id' => $order->getId(),
+                        'order_ref' => $order->getRef(),
                     ]
                 );
             }
 
             // Send confirmation email if required.
             if (Atos::getConfigValue('send_confirmation_message_only_if_paid')) {
-                $event->getDispatcher()->dispatch(TheliaEvents::ORDER_SEND_CONFIRMATION_EMAIL, $event);
+                $dispatcher->dispatch($event, TheliaEvents::ORDER_SEND_CONFIRMATION_EMAIL);
             }
 
-            Tlog::getInstance()->debug("Confirmation email sent to customer " . $order->getCustomer()->getEmail());
+            Tlog::getInstance()->debug('Confirmation email sent to customer '.$order->getCustomer()->getEmail());
         }
     }
 
     public static function getSubscribedEvents()
     {
-        return array(
-            TheliaEvents::ORDER_UPDATE_STATUS           => array("updateStatus", 128),
-            TheliaEvents::ORDER_SEND_CONFIRMATION_EMAIL => array("sendConfirmationEmail", 129)
-        );
+        return [
+            TheliaEvents::ORDER_UPDATE_STATUS => ['updateStatus', 128],
+            TheliaEvents::ORDER_SEND_CONFIRMATION_EMAIL => ['sendConfirmationEmail', 129],
+        ];
     }
 }
